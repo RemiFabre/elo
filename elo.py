@@ -123,6 +123,7 @@ def simulate_elo_static(
     # Making cool graphs about what happened
     nb_games = np.arange(0, len(players[0].elo_history), 1)
 
+    plt.rcParams["figure.figsize"] = (13, 10)
     ax = plt.subplot(111)
     ax.annotate(
         "End of placement games",
@@ -133,7 +134,6 @@ def simulate_elo_static(
         arrowprops=dict(facecolor="black", shrink=0.05),
     )
 
-    plt.rcParams["figure.figsize"] = (13, 10)
     for p in players:
         plt.plot(nb_games, p.elo_history, label=p.name, linewidth=3)
 
@@ -150,6 +150,7 @@ def simulate_elo_dynamic(
     print("Initializing displays...")
     plt.ion()
     # Set up plot
+    plt.rcParams["figure.figsize"] = (20, 16)
     figure, ax = plt.subplots(nb_players)
     common_x = []
     list_of_y = []
@@ -160,7 +161,7 @@ def simulate_elo_dynamic(
         # Autoscale ON
         lines.append(ax[l].plot(common_x, list_of_y[l], "--", linewidth=3)[0])
         ax[l].set_xlim(0, 10)
-        ax[l].set_ylim(1000, 2000)
+        ax[l].set_ylim(1250, 1750)
         ax[l].set_autoscalex_on(True)
         ax[l].set_autoscaley_on(False)
         ax[l].grid()
@@ -175,6 +176,9 @@ def simulate_elo_dynamic(
 
     # A journey consists of playing each player once. Each player will play journeys completely so the nb_games and nb_placement might not be respected
     nb_journeys = math.ceil(nb_games / float(nb_players - 1))
+    # Playing the normal games with a lower K
+    for p in players:
+        p.k_factor = p.k_factor / 2.0
     for journey in range(nb_journeys):
         for i in range(nb_players):
             # Each player will play against each other the same amount of times
@@ -193,6 +197,7 @@ def simulate_elo_dynamic(
             # Need both of these in order to rescale
             ax[l].relim()
             ax[l].autoscale_view()
+            ax[l].legend([players[l].name])
 
         # We need to draw *and* flush
         figure.canvas.draw()
