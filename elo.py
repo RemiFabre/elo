@@ -6,6 +6,7 @@ import random
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 
 # 40 for new players, 20 afterwards
 K_FACTOR = 40
@@ -77,70 +78,84 @@ class Player(object):
             )
 
 
-def main(verbose=False):
-    nb_players = 10
+def simulate_elo(nb_players, nb_games, nb_placement, verbose=False):
     min_skill = 10
-    delta_skill = 4
-    while True:
-        players = []
+    delta_skill = 5
+    players = []
+    for i in range(nb_players):
+        skill = min_skill + i * delta_skill
+        players.append(Player("Skill_" + str(skill), skill, 1500))
+
+    normal_games = nb_games - nb_placement
+    # A journey consists of playing each player once. Each player will play journeys completely so the nb_games and nb_placement might not be respected
+    nb_journeys = math.ceil(nb_placement / float(nb_players - 1))
+    actual_placement_games = nb_journeys * nb_players
+    # Playing the placement games with a high Knormal_games
+    for journey in range(nb_journeys):
         for i in range(nb_players):
-            skill = min_skill + i * delta_skill
-            players.append(Player("Skill_" + str(skill), skill, 1500))
+            # Each player will play against each other the same amount of times
+            player1 = players[i]
+            for j in range(nb_players):
+                if j <= i:
+                    continue
+                player2 = players[j]
+                player1.play_and_update(player2)
+    # Playing the normal games with a lower K
+    for p in players:
+        p.k_factor = p.k_factor / 2.0
+    nb_journeys = math.ceil(normal_games / float(nb_players - 1))
+    for journey in range(nb_journeys):
+        for i in range(nb_players):
+            # Each player will play against each other the same amount of times
+            player1 = players[i]
+            for j in range(nb_players):
+                if j <= i:
+                    continue
+                player2 = players[j]
+                player1.play_and_update(player2)
 
-        placement_games = 2
-        normal_games = placement_games * 4
-        # Playing the placement games with a high K
-        for journey in range(placement_games):
-            for i in range(nb_players):
-                # Each player will play against each other the same amount of times
-                player1 = players[i]
-                for j in range(nb_players):
-                    if j <= i:
-                        continue
-                    player2 = players[j]
-                    player1.play_and_update(player2)
-        # Playing the normal games with a lower K
-        for p in players:
-            p.k_factor = p.k_factor / 2.0
-        for journey in range(normal_games):
-            for i in range(nb_players):
-                # Each player will play against each other the same amount of times
-                player1 = players[i]
-                for j in range(nb_players):
-                    if j <= i:
-                        continue
-                    player2 = players[j]
-                    player1.play_and_update(player2)
+    # Making cool graphs about what happened
+    nb_games = np.arange(0, len(players[0].elo_history), 1)
 
-        # Making cool graphs about what happened
-        nb_games = np.arange(0, len(players[0].elo_history), 1)
+    ax = plt.subplot(111)
+    ax.annotate(
+        "End of placement games",
+        xy=(actual_placement_games, 1500),
+        xycoords="data",
+        xytext=(actual_placement_games, 1550),
+        verticalalignment="top",
+        arrowprops=dict(facecolor="black", shrink=0.05),
+    )
 
-        ax = plt.subplot(111)
-        ax.annotate(
-            "End of placement games",
-            xy=(placement_games * len(players), 1500),
-            xycoords="data",
-            xytext=(placement_games * len(players), 1600),
-            verticalalignment="top",
-            arrowprops=dict(facecolor="black", shrink=0.05),
-        )
+    for p in players:
+        plt.plot(nb_games, p.elo_history, label=p.name + " elo", linewidth=3)
 
-        for p in players:
-            plt.plot(nb_games, p.elo_history, label=p.name + " elo")
-
-        leg = plt.legend(loc="best", ncol=2, mode="expand", shadow=True, fancybox=True)
-        leg.get_frame().set_alpha(0.5)
-        plt.show()
+    leg = plt.legend(loc="best", ncol=2, mode="expand", shadow=True, fancybox=True)
+    leg.get_frame().set_alpha(0.5)
+    plt.show(block=False)
+    time.sleep(1)
+    plt.close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Creates a number of players with varying skills, simulates matches against each other and follows their elo rating evolution"
     )
-    # parser.add_argument("nb_players", help="Number of players to create")
+    parser.add_argument("nb_players", type=int, help="Number of players to create")
+    parser.add_argument(
+        "nb_games", type=int, help="Number of games each player will play"
+    )
+    parser.add_argument("nb_placements", type=int, help="Number of placement games")
+
     # Not used here but might be useful. No -v => args.verbosity=0, -v => args.verbosity=1, -vv => args.verbosity=2, etc.
     parser.add_argument("-v", "--verbosity", action="count", default=0)
     args = parser.parse_args()
 
-    main(verbose=args.verbosity)
+    if args.nb_players <= 1:
+        print("At least 2 players are needed")
+        sys.exit()
+    while True:
+        simulate_elo(
+            args.nb_players, args.nb_games, args.nb_placements, verbose=args.verbosity
+        )
 
