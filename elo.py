@@ -78,13 +78,19 @@ class Player(object):
             )
 
 
-def simulate_elo(nb_players, nb_games, nb_placement, verbose=False):
-    min_skill = 10
-    delta_skill = 5
+def simulate_elo_static(
+    nb_players,
+    nb_games,
+    nb_placement,
+    min_skill,
+    delta_skill,
+    sleep_time=1,
+    verbose=False,
+):
     players = []
     for i in range(nb_players):
         skill = min_skill + i * delta_skill
-        players.append(Player("Skill_" + str(skill), skill, 1500))
+        players.append(Player("Elo of PlayerSkill(" + str(skill) + ")", skill, 1500))
 
     normal_games = nb_games - nb_placement
     # A journey consists of playing each player once. Each player will play journeys completely so the nb_games and nb_placement might not be respected
@@ -127,14 +133,71 @@ def simulate_elo(nb_players, nb_games, nb_placement, verbose=False):
         arrowprops=dict(facecolor="black", shrink=0.05),
     )
 
+    plt.rcParams["figure.figsize"] = (13, 10)
     for p in players:
-        plt.plot(nb_games, p.elo_history, label=p.name + " elo", linewidth=3)
+        plt.plot(nb_games, p.elo_history, label=p.name, linewidth=3)
 
-    leg = plt.legend(loc="best", ncol=2, mode="expand", shadow=True, fancybox=True)
+    leg = plt.legend(loc=1, ncol=2, mode="expand", shadow=True, fancybox=True)
     leg.get_frame().set_alpha(0.5)
     plt.show(block=False)
-    time.sleep(1)
+    time.sleep(sleep_time)
     plt.close()
+
+
+def simulate_elo_dynamic(
+    nb_players, nb_games, min_skill, delta_skill, sleep_time=1, verbose=False
+):
+    print("Initializing displays...")
+    plt.ion()
+    # Set up plot
+    figure, ax = plt.subplots(nb_players)
+    common_x = []
+    list_of_y = []
+    for l in range(nb_players):
+        list_of_y.append([])
+    lines = []
+    for l in range(nb_players):
+        # Autoscale ON
+        lines.append(ax[l].plot(common_x, list_of_y[l], "--", linewidth=3)[0])
+        ax[l].set_xlim(0, 10)
+        ax[l].set_ylim(1000, 2000)
+        ax[l].set_autoscalex_on(True)
+        ax[l].set_autoscaley_on(False)
+        ax[l].grid()
+
+    graphSize = 10
+    print("Initialized")
+
+    players = []
+    for i in range(nb_players):
+        skill = min_skill + i * delta_skill
+        players.append(Player("Elo of PlayerSkill(" + str(skill) + ")", skill, 1500))
+
+    # A journey consists of playing each player once. Each player will play journeys completely so the nb_games and nb_placement might not be respected
+    nb_journeys = math.ceil(nb_games / float(nb_players - 1))
+    for journey in range(nb_journeys):
+        for i in range(nb_players):
+            # Each player will play against each other the same amount of times
+            player1 = players[i]
+            for j in range(nb_players):
+                if j <= i:
+                    continue
+                player2 = players[j]
+                player1.play_and_update(player2)
+
+        common_x = np.arange(0, len(players[0].elo_history), 1)
+        for l in range(nb_players):
+            # Update data
+            lines[l].set_xdata(common_x)
+            lines[l].set_ydata(players[l].elo_history)
+            # Need both of these in order to rescale
+            ax[l].relim()
+            ax[l].autoscale_view()
+
+        # We need to draw *and* flush
+        figure.canvas.draw()
+        figure.canvas.flush_events()
+        time.sleep(sleep_time)
 
 
 if __name__ == "__main__":
@@ -146,6 +209,19 @@ if __name__ == "__main__":
         "nb_games", type=int, help="Number of games each player will play"
     )
     parser.add_argument("nb_placements", type=int, help="Number of placement games")
+    parser.add_argument("min_skill", type=int, help="Skill of the worst player")
+    parser.add_argument("delta_skill", type=int, help="Skill gap between players")
+    parser.add_argument(
+        "--sleeptime",
+        type=float,
+        default=1,
+        help="How much to sleep between graphical updates",
+    )
+    parser.add_argument(
+        "--static",
+        action="store_true",
+        help="If not present, will output the dynamic version instead",
+    )
 
     # Not used here but might be useful. No -v => args.verbosity=0, -v => args.verbosity=1, -vv => args.verbosity=2, etc.
     parser.add_argument("-v", "--verbosity", action="count", default=0)
@@ -154,8 +230,24 @@ if __name__ == "__main__":
     if args.nb_players <= 1:
         print("At least 2 players are needed")
         sys.exit()
-    while True:
-        simulate_elo(
-            args.nb_players, args.nb_games, args.nb_placements, verbose=args.verbosity
+    if args.static:
+        while True:
+            simulate_elo_static(
+                args.nb_players,
+                args.nb_games,
+                args.nb_placements,
+                args.min_skill,
+                args.delta_skill,
+                args.sleeptime,
+                verbose=args.verbosity,
+            )
+    else:
+        simulate_elo_dynamic(
+            args.nb_players,
+            args.nb_games,
+            args.min_skill,
+            args.delta_skill,
+            args.sleeptime,
+            verbose=False,
         )
 
