@@ -1,7 +1,6 @@
 appdirs==1.4.3
 aspy.yaml==1.1.1
 attrs==18.1.0
-black==18.6b4
 cached-property==1.4.3
 certifi==2018.4.16
 cfgv==1.1.0
@@ -22,12 +21,10 @@ numpy==1.14.0
 parso==0.1.1
 pexpect==4.4.0
 pickleshare==0.7.4
-Pillow==5.0.0
 pipdeptree==0.13.0
 pre-commit==1.10.5
 prompt-toolkit==1.0.15
 ptyprocess==0.5.2
-pygame==1.9.3
 Pygments==2.2.0
 pyparsing==2.2.0
 python-dateutil==2.6.1
@@ -45,6 +42,5 @@ toml==0.9.4
 tqdm==4.23.4
 traitlets==4.3.2
 Unidecode==1.0.22
-urllib3==1.23
 virtualenv==16.0.0
 wcwidth==0.1.7
