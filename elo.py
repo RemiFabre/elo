@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
-# 40 for new players, 20 afterwards
-K_FACTOR = 40
+# # 40 for new players, 20 afterwards
+K_FACTOR = 25  # Classic is 40 but LoL seems to use 25
 DIVIDER = 400
+FORCED_WINRATE = 0.536  # None
 
 
 class Player(object):
@@ -18,12 +19,13 @@ class Player(object):
     Represents a player, its skill and its current elo points 
     """
 
-    def __init__(self, name, skill, elo=1500, k_factor=K_FACTOR):
+    def __init__(self, name, skill, elo=1500, k_factor=K_FACTOR, is_inter=False):
         self.name = name
         self.skill = skill
         self.elo = elo
         self.k_factor = k_factor
         self.elo_history = [elo]
+        self.is_inter = is_inter
 
     def __repr__(self):
         s = "Player name : {}, actual skill = {} elo rating {}".format(
@@ -53,14 +55,26 @@ class Player(object):
             return 0
         return 1
 
-    def play_and_update(self, other, verbose=False):
+    def play_forced_winrate(self, winrate):
+        proba_of_wining = winrate
+        precision = 10000
+        rand = random.randint(0, precision)
+        if rand >= precision * proba_of_wining:
+            # Loss
+            return 0
+        return 1
+
+    def play_and_update(self, other, forced_win_rate=FORCED_WINRATE, verbose=False):
         """Plays against an other player and updates both elo ratings depending on the output of the match
         
         Arguments:
             other {Player} -- Other player
         """
         expected = self.expected_result(other)
-        result = self.play(other)
+        if forced_win_rate == None:
+            result = self.play(other)
+        else:
+            result = self.play_forced_winrate(forced_win_rate)
         delta_points = self.k_factor * (result - expected)
         self.elo = self.elo + delta_points
         self.elo_history.append(self.elo)
@@ -145,8 +159,15 @@ def simulate_elo_static(
 
 
 def simulate_elo_dynamic(
-    nb_players, nb_games, min_skill, delta_skill, sleep_time=1, verbose=False
-):
+    nb_players,
+    nb_games,
+    min_skill,
+    delta_skill,
+    sleep_time=1,
+    elohell=False,
+    verbose=False,
+)
+TODO handle elohell
     print("Initializing displays...")
     plt.ion()
     # Set up plot
@@ -227,12 +248,17 @@ if __name__ == "__main__":
         action="store_true",
         help="If not present, will output the dynamic version instead",
     )
+    parser.add_argument(
+        "--elohell",
+        action="store_true",
+        help="Mode where the winrate is fixed and players always play against oponents of the same skill",
+    )
 
     # Not used here but might be useful. No -v => args.verbosity=0, -v => args.verbosity=1, -vv => args.verbosity=2, etc.
     parser.add_argument("-v", "--verbosity", action="count", default=0)
     args = parser.parse_args()
 
-    if args.nb_players <= 1:
+    if args.nb_players <= 1 and not (args.elohell):
         print("At least 2 players are needed")
         sys.exit()
     if args.static:
@@ -253,6 +279,6 @@ if __name__ == "__main__":
             args.min_skill,
             args.delta_skill,
             args.sleeptime,
+            elohell=args.elohell,
             verbose=False,
         )
-
