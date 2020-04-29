@@ -8,10 +8,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
-# # 40 for new players, 20 afterwards
-K_FACTOR = 25  # Classic is 40 but LoL seems to use 25
+# FIDE (chess) use K=40 for placement games and K=20 afterwads (or k=10 for high elo): https://en.wikipedia.org/wiki/Elo_rating_system
+# LOL (season 2) seems to use K=100 for placement games and K=25 afterwards: https://leagueoflegends.fandom.com/wiki/Elo_rating_system
+K_FACTOR_PLACEMENTS = 100
+K_FACTOR = 25
 DIVIDER = 400
-FORCED_WINRATE = 0.536  # None
+STARTING_ELO = 1200
+FORCED_WINRATE = 0.536
+"""
+0.536 is the theoretical winrate of a player in elo hell. 
+Elo hell is here defined as: 
+- Any other player has a probability of ruining the game of 0.1 (a.k.a. inter)
+- If both teams have an equal number of inters, then the probability of wining the game is 0.5
+"""
 
 
 class Player(object):
@@ -19,7 +28,14 @@ class Player(object):
     Represents a player, its skill and its current elo points 
     """
 
-    def __init__(self, name, skill, elo=1500, k_factor=K_FACTOR, is_inter=False):
+    def __init__(
+        self,
+        name,
+        skill,
+        elo=STARTING_ELO,
+        k_factor=K_FACTOR_PLACEMENTS,
+        is_inter=False,
+    ):
         self.name = name
         self.skill = skill
         self.elo = elo
@@ -64,14 +80,21 @@ class Player(object):
             return 0
         return 1
 
-    def play_and_update(self, other, forced_win_rate=FORCED_WINRATE, verbose=False):
+    def play_and_update(
+        self, other, elohell=False, forced_win_rate=FORCED_WINRATE, verbose=False
+    ):
         """Plays against an other player and updates both elo ratings depending on the output of the match
-        
+
         Arguments:
             other {Player} -- Other player
+
+        Keyword Arguments:
+            elohell {bool} -- If true, a fixed winrate will be used instead (default: {False})
+            forced_win_rate {[type]} -- Only used if elohell==True (default: {FORCED_WINRATE})
+            verbose {bool} -- More prints (default: {False})
         """
         expected = self.expected_result(other)
-        if forced_win_rate == None:
+        if not (elohell):
             result = self.play(other)
         else:
             result = self.play_forced_winrate(forced_win_rate)
@@ -83,7 +106,9 @@ class Player(object):
 
         if verbose:
             print(
-                "expected by skill={}, expected by elo={}, result={}, delta_points={}".format(
+                "{} vs {}. Expected by skill={}, expected by elo={}, result={}, delta_points={}".format(
+                    self.name,
+                    other.name,
                     float(self.skill) / (self.skill + other.skill),
                     expected,
                     result,
@@ -99,40 +124,50 @@ def simulate_elo_static(
     min_skill,
     delta_skill,
     sleep_time=1,
+    elohell=False,
     verbose=False,
 ):
     players = []
     for i in range(nb_players):
         skill = min_skill + i * delta_skill
-        players.append(Player("Elo of PlayerSkill(" + str(skill) + ")", skill, 1500))
+        players.append(
+            Player("Elo of PlayerSkill(" + str(skill) + ")", skill, STARTING_ELO)
+        )
 
     normal_games = nb_games - nb_placement
     # A journey consists of playing each player once. Each player will play journeys completely so the nb_games and nb_placement might not be respected
     nb_journeys = math.ceil(nb_placement / float(nb_players - 1))
-    actual_placement_games = nb_journeys * nb_players
-    # Playing the placement games with a high Knormal_games
-    for journey in range(nb_journeys):
-        for i in range(nb_players):
-            # Each player will play against each other the same amount of times
-            player1 = players[i]
-            for j in range(nb_players):
-                if j <= i:
-                    continue
-                player2 = players[j]
-                player1.play_and_update(player2)
-    # Playing the normal games with a lower K
-    for p in players:
-        p.k_factor = p.k_factor / 2.0
-    nb_journeys = math.ceil(normal_games / float(nb_players - 1))
-    for journey in range(nb_journeys):
-        for i in range(nb_players):
-            # Each player will play against each other the same amount of times
-            player1 = players[i]
-            for j in range(nb_players):
-                if j <= i:
-                    continue
-                player2 = players[j]
-                player1.play_and_update(player2)
+    if not (elohell):
+        actual_placement_games = nb_journeys * nb_players
+    else:
+        actual_placement_games = nb_placement
+    for mode in range(2):
+        # Playing the placement games with a high K (mode==0) then playing the normal games with a lower K (mode==1)
+        if not (elohell):
+            actual_games = nb_journeys * nb_players
+            for journey in range(nb_journeys):
+                for i in range(nb_players):
+                    # Each player will play against each other the same amount of times
+                    player1 = players[i]
+                    for j in range(nb_players):
+                        if j <= i:
+                            continue
+                        player2 = players[j]
+                        player1.play_and_update(player2, verbose=verbose)
+        else:
+            # In elohell mode players don't play against each other, they have a fixed winrate and play each 'actual_games' games against oponents of the same elo they are actually in
+            for p in players:
+                for i in range(nb_placement if mode == 0 else normal_games):
+                    p.play_and_update(
+                        Player("FakePlayer", 10, elo=p.elo),
+                        elohell=elohell,
+                        forced_win_rate=FORCED_WINRATE,
+                        verbose=verbose,
+                    )
+        # Playing the normal games with a lower K
+        for p in players:
+            p.k_factor = K_FACTOR
+        nb_journeys = math.ceil(normal_games / float(nb_players - 1))
 
     # Making cool graphs about what happened
     nb_games = np.arange(0, len(players[0].elo_history), 1)
@@ -141,15 +176,25 @@ def simulate_elo_static(
     ax = plt.subplot(111)
     ax.annotate(
         "End of placement games",
-        xy=(actual_placement_games, 1500),
+        xy=(actual_placement_games, STARTING_ELO),
         xycoords="data",
-        xytext=(actual_placement_games, 1550),
+        xytext=(actual_placement_games, STARTING_ELO + 50),
         verticalalignment="top",
         arrowprops=dict(facecolor="black", shrink=0.05),
     )
 
     for p in players:
         plt.plot(nb_games, p.elo_history, label=p.name, linewidth=3)
+
+    # Caculating the average elo. This value should be constant in the normal mode but it's not because the same match will appear
+    # in different positions of each player's elo_history. So just use this as a debugg tool.
+    average_elo = []
+    for i in range(len(players[0].elo_history)):
+        avg = 0
+        for p in players:
+            avg += p.elo_history[i]
+        average_elo.append(avg / float(len(players)))
+    plt.plot(nb_games, average_elo, label="AVERAGE ELO", linewidth=6)
 
     leg = plt.legend(loc=1, ncol=2, mode="expand", shadow=True, fancybox=True)
     leg.get_frame().set_alpha(0.5)
@@ -166,8 +211,10 @@ def simulate_elo_dynamic(
     sleep_time=1,
     elohell=False,
     verbose=False,
-)
-TODO handle elohell
+):
+    if elohell:
+        print("elohell option not implemented yet in the dynamic case")
+        return
     print("Initializing displays...")
     plt.ion()
     # Set up plot
@@ -193,7 +240,9 @@ TODO handle elohell
     players = []
     for i in range(nb_players):
         skill = min_skill + i * delta_skill
-        players.append(Player("Elo of PlayerSkill(" + str(skill) + ")", skill, 1500))
+        players.append(
+            Player("Elo of PlayerSkill(" + str(skill) + ")", skill, STARTING_ELO)
+        )
 
     # A journey consists of playing each player once. Each player will play journeys completely so the nb_games and nb_placement might not be respected
     nb_journeys = math.ceil(nb_games / float(nb_players - 1))
@@ -208,7 +257,9 @@ TODO handle elohell
                 if j <= i:
                     continue
                 player2 = players[j]
-                player1.play_and_update(player2)
+                player1.play_and_update(
+                    player2, elohell=elohell, forced_win_rate=FORCED_WINRATE
+                )
 
         common_x = np.arange(0, len(players[0].elo_history), 1)
         for l in range(nb_players):
@@ -258,6 +309,11 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbosity", action="count", default=0)
     args = parser.parse_args()
 
+    if args.elohell:
+        print(
+            "Warning: the elohell option completely changes this program's behaviour, don't get fooled. Players don't play against each other anymore."
+        )
+
     if args.nb_players <= 1 and not (args.elohell):
         print("At least 2 players are needed")
         sys.exit()
@@ -270,6 +326,7 @@ if __name__ == "__main__":
                 args.min_skill,
                 args.delta_skill,
                 args.sleeptime,
+                elohell=args.elohell,
                 verbose=args.verbosity,
             )
     else:
