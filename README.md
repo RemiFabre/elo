@@ -14,10 +14,13 @@ Static example:
 ``` 
 python elo.py 5 100 15 10 10 --sleeptime=5 --static
 ``` 
+https://www.youtube.com/watch?v=dEW1x4HGTIA
+
 Dynamic example:
 ``` 
 python elo.py 5 10000 15 10 10 --sleeptime=0.01
 ``` 
+https://www.youtube.com/watch?v=f_B2ISMUnVo
 
 Adding the --elohell option changes how the program works. Instead than facing with each other, the players face fake opponents and have a fixed winrate (calculated with elo_hell.py).
 ```
