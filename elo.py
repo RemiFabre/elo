@@ -51,7 +51,7 @@ class Player(object):
 
     def expected_result(self, other):
         """Returns the expected value of the match against an other player (0 means a guaranteed loss, 1 means a guaranteed win)
-        
+
         Arguments:
             other {Player} -- The second player
         """
@@ -59,7 +59,7 @@ class Player(object):
 
     def play(self, other):
         """Returns the result (0 if loss, 1 if won) of a game against an other player 
-        
+
         Arguments:
             other {Player} -- The second player
         """
@@ -93,11 +93,28 @@ class Player(object):
             forced_win_rate {[type]} -- Only used if elohell==True (default: {FORCED_WINRATE})
             verbose {bool} -- More prints (default: {False})
         """
-        expected = self.expected_result(other)
         if not (elohell):
             result = self.play(other)
         else:
             result = self.play_forced_winrate(forced_win_rate)
+        self.update(other, result, verbose=verbose)
+
+    def update(
+        self, other, result, verbose=False
+    ):
+        """Updates this player's ELO and the 'other' player's ELO depending on the 'result' of a game.
+
+        Arguments:
+            other {Player} -- Other player
+            result {Float} -- Result of the game. 1.0 for a win against the 'other' player, 0.0 for a loss,
+            0.5 for a draw.
+
+        Keyword Arguments:
+            elohell {bool} -- If true, a fixed winrate will be used instead (default: {False})
+            forced_win_rate {[type]} -- Only used if elohell==True (default: {FORCED_WINRATE})
+            verbose {bool} -- More prints (default: {False})
+        """
+        expected = self.expected_result(other)
         delta_points = self.k_factor * (result - expected)
         self.elo = self.elo + delta_points
         self.elo_history.append(self.elo)
