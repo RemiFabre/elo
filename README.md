@@ -1,9 +1,10 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
-![expected_winrate.png](expected_winrate.png)
-
 ## Purpose
 Simulating how the Elo ranking system works in a simple Python interface 
+
+![expected_winrate.png](expected_winrate.png)
+![nb_wins.png](nb_wins.png)
 
 ## Install
 pip install -r requirements.txt
