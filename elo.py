@@ -10,6 +10,7 @@ import time
 
 # FIDE (chess) use K=40 for placement games and K=20 afterwads (or k=10 for high elo): https://en.wikipedia.org/wiki/Elo_rating_system
 # LOL (season 2) seems to use K=100 for placement games and K=25 afterwards: https://leagueoflegends.fandom.com/wiki/Elo_rating_system
+# BoardGameArena uses K = 60, then K=40, then K=20 after the end of placement games: https://boardgamearena.com/faq?anchor=faq_account_elo
 K_FACTOR_PLACEMENTS = 100
 K_FACTOR = 25
 DIVIDER = 400
@@ -18,14 +19,14 @@ FORCED_WINRATE = 0.536
 """
 0.536 is the theoretical winrate of a player in elo hell. 
 Elo hell is here defined as: 
-- Any other player has a probability of ruining the game of 0.1 (a.k.a. inter)
+- Any other player has a probability of ruining the game of 0.1 (a.k.a. inter) in a 5vs5 game
 - If both teams have an equal number of inters, then the probability of wining the game is 0.5
 """
 
 
 class Player(object):
     """
-    Represents a player, its skill and its current elo points 
+    Represents a player, its skill and its current elo points
     """
 
     def __init__(
@@ -58,7 +59,7 @@ class Player(object):
         return float(1) / (1 + math.pow(10, float(other.elo - self.elo) / DIVIDER))
 
     def play(self, other):
-        """Returns the result (0 if loss, 1 if won) of a game against an other player 
+        """Returns the result (0 if loss, 1 if won) of a game against an other player
 
         Arguments:
             other {Player} -- The second player
@@ -99,9 +100,7 @@ class Player(object):
             result = self.play_forced_winrate(forced_win_rate)
         self.update(other, result, verbose=verbose)
 
-    def update(
-        self, other, result, verbose=False
-    ):
+    def update(self, other, result, verbose=False):
         """Updates this player's ELO and the 'other' player's ELO depending on the 'result' of a game.
 
         Arguments:
